@@ -10,11 +10,25 @@ from osgeo import gdal
 
 logging.basicConfig(level=logging.INFO)
 FLOAT32_NODATA = numpy.finfo(numpy.float32).min
+BYTE_NODATA = 255
 LOGGER = logging.getLogger(__name__)
 
 
-def convert_to_population_per_unit_area(
-        population_raster, target_population_density):
+def mask_areas_of_interest(aoi_path, target_path):
+    aoi_nodata = pygeoprocessing.get_raster_info(aoi_path)['nodata'][0]
+
+    def _convert(array):
+        result = numpy.full(array.shape, 0, dtype=numpy.uint8)
+        result[array == 1] = 1
+        result[numpy.isclose(array, aoi_nodata)] = BYTE_NODATA
+        return result
+
+    pygeoprocessing.raster_calculator(
+        [(aoi_path, 1)], _convert, target_path, gdal.GDT_Byte, BYTE_NODATA)
+
+
+def convert_population_units(
+        population_raster, target_population_density, to_density=True):
 
     # assume linearly projected
     # TODO: how would we handle some other projection, where pixels are not
@@ -28,7 +42,10 @@ def convert_to_population_per_unit_area(
         result = numpy.full(pop_array.shape, FLOAT32_NODATA,
                             dtype=numpy.float32)
         valid_mask = ~numpy.isclose(pop_array, pop_nodata)
-        result[valid_mask] = pop_array[valid_mask] / pixel_area
+        if to_density:
+            result[valid_mask] = pop_array[valid_mask] / pixel_area
+        else:
+            result[valid_mask] = pop_array[valid_mask] * pixel_area
         return result
 
     pygeoprocessing.raster_calculator(
@@ -51,8 +68,8 @@ def calculate_downstream_beneficiaries(
     population_density_path = os.path.join(
         workspace_dir, f'population_density.tif')
     pop_density_task = graph.add_task(
-        convert_to_population_per_unit_area,
-        args=(population_path, population_density_path),
+        convert_population_units,
+        args=(population_path, population_density_path, True),
         target_path_list=[population_density_path],
         task_name='convert population count to density',
         dependent_task_list=[]
@@ -89,13 +106,60 @@ def calculate_downstream_beneficiaries(
     )
 
     # raster_calculator: mask to create raster of 1-value and 0-values.
+    masked_areas_of_interest_path = os.path.join(
+        workspace_dir, 'masked_areas_of_interest.tif')
+    masked_aoi_task = graph.add_task(
+        mask_areas_of_interest,
+        args=(aligned_areas_of_interest_path, masked_areas_of_interest_path),
+        target_path_list=[masked_areas_of_interest_path],
+        task_name='mask areas of interest',
+        dependent_task_list=[align_task]
+    )
+
     # raster_calculator: convert the population back to population count
+    population_count_path = os.path.join(
+        workspace_dir, f'aligned_population_count.tif')
+    pop_density_task = graph.add_task(
+        convert_population_units,
+        args=(population_path, population_density_path, False),
+        target_path_list=[population_density_path],
+        task_name='convert population density to count',
+        dependent_task_list=[align_task]
+    )
+
     # fill the dem
+    filled_dem_path = os.path.join(
+        workspace_dir, 'filled_dem.tif')
+    filled_dem_task = graph.add_task(
+        pygeoprocessing.routing.fill_pits,
+        args=((aligned_dem_path, 1), filled_dem_path, workspace_dir),
+        target_path_list=[filled_dem_path],
+        task_name='fill pits',
+        dependent_task_list=[align_task]
+    )
+
     # flow_direction
+    flow_dir_path = os.path.join(
+        workspace_dir, 'flow_dir_mfd.tif')
+    flow_dir_task = graph.add_task(
+        pygeoprocessing.routing.flow_dir_mfd,
+        args=((filled_dem_path, 1), flow_dir_path, workspace_dir),
+        target_path_list=[flow_dir_path],
+        task_name='flow direction mfd',
+        dependent_task_list=[filled_dem_task]
+    )
+
     # weighted flow accumulation.
-    # done.
-
-
+    flow_accum_path = os.path.join(
+        workspace_dir, 'flow_accumulation.tif')
+    _ = graph.add_task(
+        pygeoprocessing.routing.flow_accumulation_mfd,
+        args=((flow_dir_path, 1), flow_accum_path,
+              masked_areas_of_interest_path),
+        target_path_list=[flow_accum_path],
+        task_name='weighted flow accumulation',
+        dependent_task_list=[flow_dir_task, masked_aoi_task]
+    )
 
 
 def main():
@@ -103,4 +167,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    calculate_downstream_beneficiaries(
+        'DEM_Colombia300m.tif',
+        'LandscanPopulation2017_Colombia.tif',
+        'MaskServiceProvHotspots.tif',
+        'downstream-beneficiaries-workspace')
