@@ -151,6 +151,9 @@ def calculate_downstream_beneficiaries(
     )
 
     # weighted flow accumulation.
+    # TODO: is flow accum the correct operation?
+    # distance to channel instead?
+    # Or maybe we need to invert the values, so the higher values are upstream?
     flow_accum_path = os.path.join(
         workspace_dir, 'flow_accumulation.tif')
     _ = graph.add_task(
