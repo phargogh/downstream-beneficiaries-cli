@@ -5,11 +5,12 @@ import os
 
 import numpy
 import pygeoprocessing
+import pygeoprocessing.routing
 import taskgraph
 from osgeo import gdal
 
 logging.basicConfig(level=logging.INFO)
-FLOAT32_NODATA = numpy.finfo(numpy.float32).min
+FLOAT32_NODATA = float(numpy.finfo(numpy.float32).min)
 BYTE_NODATA = 255
 LOGGER = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ def calculate_downstream_beneficiaries(
     _ = graph.add_task(
         pygeoprocessing.routing.flow_accumulation_mfd,
         args=((flow_dir_path, 1), flow_accum_path,
-              masked_areas_of_interest_path),
+              (masked_areas_of_interest_path, 1)),
         target_path_list=[flow_accum_path],
         task_name='weighted flow accumulation',
         dependent_task_list=[flow_dir_task, masked_aoi_task]
