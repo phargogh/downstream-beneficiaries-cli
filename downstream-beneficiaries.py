@@ -111,7 +111,7 @@ def calculate_downstream_beneficiaries(
 
     # raster_calculator: convert the population to population per unit area
     population_density_path = os.path.join(
-        workspace_dir, f'population_density.tif')
+        workspace_dir, 'population_density.tif')
     pop_density_task = graph.add_task(
         convert_population_units,
         args=(population_path, population_density_path, True),
@@ -224,12 +224,40 @@ def calculate_downstream_beneficiaries(
 
 
 def main():
-    pass
+    parser = argparse.ArgumentParser(
+        description=(
+            'Count the number of people downstream of pixels of interest.'),
+        prog='downstream-beneficiaries.py')
+    parser.add_argument(
+        '--parallelize', default=False, help=(
+            'Whether to engage multiple CPU cores for computation'))
+    parser.add_argument(
+        '--dem', help='The path to the linearly-projected DEM raster to use.',
+        required=True)
+    parser.add_argument(
+        '--population', help='Raster of population counts per pixel.',
+        required=True)
+    parser.add_argument(
+        '--areas-of-interest', help=(
+            'Raster indicating areas of interest.  Pixel values of 1 '
+            'an area of interest, anything else is not an area of interest.'),
+        required=True)
+    parser.add_argument('workspace', help='The target workspace directory')
+
+    args = parser.parse_args()
+    calculate_downstream_beneficiaries(
+        dem_path=args.dem,
+        population_path=args.population,
+        areas_of_interest_path=args.areas_of_interest,
+        workspace_dir=args.workspace,
+        n_workers=-1 if not args.parallelize else 2
+    )
 
 
 if __name__ == '__main__':
-    calculate_downstream_beneficiaries(
-        'DEM_Colombia300m.tif',
-        'LandscanPopulation2017_Colombia.tif',
-        'MaskServiceProvHotspots.tif',
-        'downstream-beneficiaries-workspace')
+    main()
+    #calculate_downstream_beneficiaries(
+    #    'DEM_Colombia300m.tif',
+    #    'LandscanPopulation2017_Colombia.tif',
+    #    'MaskServiceProvHotspots.tif',
+    #    'downstream-beneficiaries-workspace')
