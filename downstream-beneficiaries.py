@@ -15,6 +15,50 @@ BYTE_NODATA = 255
 LOGGER = logging.getLogger(__name__)
 
 
+def _sum_population_counts(masked_pop_path):
+    pixel_sum = 0
+    masked_pop_nodata = pygeoprocessing.get_raster_info(
+        masked_pop_path)['nodata'][0]
+
+    for block_info, pop_block in pygeoprocessing.iterblocks(
+            (masked_pop_path, 1)):
+        valid_pixels = ~numpy.isclose(pop_block, masked_pop_nodata)
+
+        # Casting pixel values to ints to minimize numerical error when
+        # summing.
+        pixel_sum += numpy.sum(pop_block[valid_pixels].astype(numpy.uint32))
+
+    return pixel_sum
+
+
+def _mask_pop_downstream_of_aois(flow_accum_path, pop_count_path,
+                                 target_mask_path):
+    flow_accum_nodata = pygeoprocessing.get_raster_info(
+        flow_accum_path)['nodata'][0]
+    pop_count_nodata = pygeoprocessing.get_raster_info(
+        pop_count_path)['nodata'][0]
+
+    def _mask(flow_accum_array, pop_count_array):
+        output = numpy.full(flow_accum_array.shape, FLOAT32_NODATA,
+                            dtype=numpy.float32)
+        pixels_with_aoi_upstream = (
+            ~numpy.isclose(flow_accum_array, flow_accum_nodata) &
+            ~numpy.isclose(pop_count_array, pop_count_nodata) &
+            (flow_accum_array > 0))
+
+        output[pixels_with_aoi_upstream] = (
+            pop_count_array[pixels_with_aoi_upstream])
+
+        return output
+
+    pygeoprocessing.raster_calculator(
+        [(flow_accum_path, 1), (pop_count_path, 1)], _mask, target_mask_path,
+        gdal.GDT_Float32, pop_count_nodata)
+
+    people_downstream_of_aois = _sum_population_counts(target_mask_path)
+    print(f'People downstream of AOIs: {people_downstream_of_aois}')
+
+
 def mask_areas_of_interest(aoi_path, target_path):
     aoi_nodata = pygeoprocessing.get_raster_info(aoi_path)['nodata'][0]
 
@@ -120,9 +164,9 @@ def calculate_downstream_beneficiaries(
     # raster_calculator: convert the population back to population count
     population_count_path = os.path.join(
         workspace_dir, f'aligned_population_count.tif')
-    pop_density_task = graph.add_task(
+    pop_count_task = graph.add_task(
         convert_population_units,
-        args=(population_path, population_density_path, False),
+        args=(aligned_population_density_path, population_count_path, False),
         target_path_list=[population_density_path],
         task_name='convert population density to count',
         dependent_task_list=[align_task]
@@ -151,12 +195,11 @@ def calculate_downstream_beneficiaries(
     )
 
     # weighted flow accumulation.
-    # TODO: is flow accum the correct operation?
-    # distance to channel instead?
-    # Or maybe we need to invert the values, so the higher values are upstream?
+    # This is used to generate a mask of what is downstream of the areas of
+    # interest.
     flow_accum_path = os.path.join(
         workspace_dir, 'flow_accumulation.tif')
-    _ = graph.add_task(
+    flow_accum_task = graph.add_task(
         pygeoprocessing.routing.flow_accumulation_mfd,
         args=((flow_dir_path, 1), flow_accum_path,
               (masked_areas_of_interest_path, 1)),
@@ -164,6 +207,20 @@ def calculate_downstream_beneficiaries(
         task_name='weighted flow accumulation',
         dependent_task_list=[flow_dir_task, masked_aoi_task]
     )
+
+    # Mask populations downstream of areas of interest.
+    masked_pop_path = os.path.join(
+        workspace_dir, 'pop_downstream_of_areas_of_interest.tif')
+    masked_pop_path = graph.add_task(
+        _mask_pop_downstream_of_aois,
+        args=(flow_accum_path, population_count_path, masked_pop_path),
+        target_path_list=[masked_pop_path],
+        task_name='identify pixels downstream of AOIs',
+        dependent_task_list=[flow_accum_task, pop_count_task]
+    )
+
+    graph.join()
+    graph.close()
 
 
 def main():
