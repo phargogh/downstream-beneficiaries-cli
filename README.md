@@ -12,5 +12,10 @@ conda activate ./env
 ## Running the Program
 
 ```
-python downstream-beneficiaries.py --parallelize=1 --dem=DEM_Colombia300m.tif --population=LandscanPopulation2017_Colombia.tif --areas-of-interest=MaskServiceProvHotspots.tif ./downstream-beneficiaries-workspace
+python downstream-beneficiaries.py \
+    --parallelize=1 \
+    --dem=DEM_Colombia300m.tif \
+    --population=LandscanPopulation2017_Colombia.tif \
+    --areas-of-interest=MaskServiceProvHotspots.tif \
+    ./downstream-beneficiaries-workspace
 ```
