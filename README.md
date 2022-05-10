@@ -20,6 +20,48 @@ python downstream-beneficiaries.py \
     ./downstream-beneficiaries-workspace
 ```
 
+### Inputs:
+
+1. DEM: A raster indicating elevation of each pixel. This raster must be
+   linearly projected (e.g. into meters) and have square pixels.
+2. Population: A raster of population counts (people per pixel), also in a
+   linear projection.
+3. Areas of Interest: A raster indicating pixels of interest. Pixel values of
+   1 are considered pixels of interest. Any other pixel values (including
+   nodata) are pixels of non-interest.
+4. Workspace: A directory where output rasters should be stored.
+
+
+### Outputs:
+
+The total population count is printed to standard output.
+
+The tool also produces several files in the workspace:
+
+* The input rasters are warped to match the DEM's projection and pixel size and
+  the intersection of the datasets' bounding boxes:
+  * `aligned_dem.tif` is the aligned DEM.
+  * `aligned_areas_of_interest.tif` is the aligned areas of interest raster.
+  * In order to maintain consistent population counts during warping, the
+    population raster is first converted to a population density before it is
+    warped.
+    * `population_density.tif` is the population raster, converted to people
+      per unit area.
+    * `aligned_population_density.tif` is the aligned version of
+      `population_density.tif`, which has also been bilinearly interpolated.
+    * `aligned_population_count.tif` is the result of taking
+      `aligned_population_density.tif` and converting its units back to
+      population counts per pixel.
+* `filled_dem.tif` is a pit-filled version of `aligned_dem.tif`.
+* `flow_dir_mfd.tif` is the result of calculating flow direction on
+  `filled_dem.tif` using pygeoprocessing's MFD routing.
+* `flow_accumulation.tif` is the flow accumulation using the provided areas of
+  interest as a weight. Thus, pixels with a value > 0 are downstream of pixels
+  of interest.
+* `pop_downstream_of_areas_of_interest.tif` identifies which aligned population
+  pixels are downstream of the areas of interest.
+
+
 ## About this script
 
 This came about in late 2021 as a request to the software team from @lmandle
@@ -30,4 +72,5 @@ The original software team issue is documented here: https://github.com/natcap/s
 
 The approach taken is based on an approach described here:
 https://github.com/therealspring/downstream-beneficiaries/blob/main/downstream_beneficiaries.py,
-but the script in this repo is adapted to run as a CLI application.
+but the script in this repo is adapted to run as a CLI application instead of
+as a global pipeline.
