@@ -13,6 +13,16 @@ logging.basicConfig(level=logging.INFO)
 FLOAT32_NODATA = float(numpy.finfo(numpy.float32).min)
 BYTE_NODATA = 255
 LOGGER = logging.getLogger(__name__)
+ALGORITHMS = {
+    "d8": {
+        "flow_dir": pygeoprocessing.routing.flow_dir_d8,
+        "flow_accumulation": pygeoprocessing.routing.flow_accumulation_d8,
+    },
+    "mfd": {
+        "flow_dir": pygeoprocessing.routing.flow_dir_mfd,
+        "flow_accumulation": pygeoprocessing.routing.flow_accumulation_mfd,
+    }
+}
 
 
 def _sum_population_counts(masked_pop_path):
@@ -100,7 +110,11 @@ def convert_population_units(
 
 def calculate_downstream_beneficiaries(
         dem_path, population_path, areas_of_interest_path, workspace_dir,
-        n_workers=-1):
+        algorithm='mfd', n_workers=-1):
+
+    algorithm = algorithm.lower()
+    if algorithm not in ALGORITHMS.keys():
+        raise ValueError(f"Invalid routing algorithm: {algorithm}")
 
     if not os.path.join(workspace_dir):
         os.makedirs(workspace_dir)
@@ -185,12 +199,12 @@ def calculate_downstream_beneficiaries(
 
     # flow_direction
     flow_dir_path = os.path.join(
-        workspace_dir, 'flow_dir_mfd.tif')
+        workspace_dir, f'flow_dir_{algorithm}.tif')
     flow_dir_task = graph.add_task(
-        pygeoprocessing.routing.flow_dir_mfd,
+        ALGORITHMS[algorithm]['flow_dir'],
         args=((filled_dem_path, 1), flow_dir_path, workspace_dir),
         target_path_list=[flow_dir_path],
-        task_name='flow direction mfd',
+        task_name=f'flow direction {algorithm}',
         dependent_task_list=[filled_dem_task]
     )
 
@@ -200,7 +214,7 @@ def calculate_downstream_beneficiaries(
     flow_accum_path = os.path.join(
         workspace_dir, 'flow_accumulation.tif')
     flow_accum_task = graph.add_task(
-        pygeoprocessing.routing.flow_accumulation_mfd,
+        ALGORITHMS[algorithm]['flow_accumulation'],
         args=((flow_dir_path, 1), flow_accum_path,
               (masked_areas_of_interest_path, 1)),
         target_path_list=[flow_accum_path],
@@ -238,6 +252,11 @@ def main():
         '--population', help='Raster of population counts per pixel.',
         required=True)
     parser.add_argument(
+        '--algorithm', help=(
+            'The routing algorithm to use. One of "D8" or "MFD". '
+            'Default: MFD.'),
+        default="MFD", required=False)
+    parser.add_argument(
         '--areas-of-interest', help=(
             'Raster indicating areas of interest.  Pixel values of 1 '
             'an area of interest, anything else is not an area of interest.'),
@@ -250,6 +269,7 @@ def main():
         population_path=args.population,
         areas_of_interest_path=args.areas_of_interest,
         workspace_dir=args.workspace,
+        algorithm=args.algorithm,
         n_workers=-1 if not args.parallelize else 2
     )
 

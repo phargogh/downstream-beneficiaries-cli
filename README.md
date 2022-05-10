@@ -26,15 +26,21 @@ python downstream-beneficiaries.py \
    linearly projected (e.g. into meters) and have square pixels.
 2. Population: A raster of population counts (people per pixel), also in a
    linear projection.
+   * NOTE: This tool only counts what is along a flow path. Be sure that the
+   population raster has population appropriately attributed to pixels that are
+   along a relevant flow path. This is particularly relevant for D8 routing
+   because of its 1-pixel stream widths.
 3. Areas of Interest: A raster indicating pixels of interest. Pixel values of
    1 are considered pixels of interest. Any other pixel values (including
    nodata) are pixels of non-interest.
-4. Workspace: A directory where output rasters should be stored.
+4. `--parallelize`: if `1`, run on 2 CPU cores. If `0`, run on 1 core.
+5. Routing algorithm: whether to run this with D8 or MFD routing. Default: MFD.
+6. Workspace: A directory where output rasters should be stored.
 
 
 ### Outputs:
 
-The total population count is printed to standard output.
+**The total population count is printed to standard output.**
 
 The tool also produces several files in the workspace:
 
@@ -53,8 +59,8 @@ The tool also produces several files in the workspace:
       `aligned_population_density.tif` and converting its units back to
       population counts per pixel.
 * `filled_dem.tif` is a pit-filled version of `aligned_dem.tif`.
-* `flow_dir_mfd.tif` is the result of calculating flow direction on
-  `filled_dem.tif` using pygeoprocessing's MFD routing.
+* `flow_dir_{MFD/D8}.tif` is the result of calculating flow direction on
+  `filled_dem.tif` using pygeoprocessing's MFD or D8 routing.
 * `flow_accumulation.tif` is the flow accumulation using the provided areas of
   interest as a weight. Thus, pixels with a value > 0 are downstream of pixels
   of interest.
