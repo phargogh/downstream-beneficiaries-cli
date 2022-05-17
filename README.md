@@ -76,7 +76,7 @@ and would be useful for an upcoming project in Sri Lanka.
 
 The original software team issue is documented here: https://github.com/natcap/softwareteam/issues/125
 
-The approach taken is based on an approach described here:
+The approach taken is based on the weighted flow accumulation pygeoprocessing pipeline described here:
 https://github.com/therealspring/downstream-beneficiaries/blob/main/downstream_beneficiaries.py,
 but the script in this repo is adapted to run as a CLI application instead of
 as a global pipeline.
