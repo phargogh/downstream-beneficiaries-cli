@@ -2,12 +2,23 @@
 
 Count the number of people downstream of pixels of interest.
 
-## Installation
+## Dependencies
+
+### Installing dependencies with `conda`/`mamba`
 
 ```
-conda create -p ./env python=3.9 -c conda-forge pygeoprocessing python=3.9 taskgraph
-conda activate ./env
+mamba create -p ./env -c conda-forge pygeoprocessing python=3.9 taskgraph
+mamba activate ./env
 ```
+
+### Using Docker
+
+Dependencies are available in the container https://github.com/natcap/devstack/.
+
+```
+docker pull ghcr.io/natcap/devstack:2023-04-05
+```
+
 
 ## Running the Program
 
@@ -19,6 +30,26 @@ python downstream-beneficiaries.py \
     --areas-of-interest=MaskServiceProvHotspots.tif \
     ./downstream-beneficiaries-workspace
 ```
+
+If using a docker container, make sure that your files are in the current
+working directory before running the below.
+
+On Mac and Linux, this would look like:
+```
+docker run --rm -ti -v $(pwd):/natcap -w /natcap ghcr.io/natcap/devstack:latest \
+        python3 downstream-beneficiaries.py \
+        --parallelize=1 \
+        --dem=DEM_Colombia300m.tif \
+        --population=LandscanPopulation2017_Colombia.tif \
+        --areas-of-interest=MaskServiceProvHotspots.tif \
+        ./downstream-beneficiaries-workspace
+```
+
+On Windows, this would look like:
+```
+docker run --rm -ti -v %CD%:/natcap -w /natcap ghcr.io/natcap/devstack:latest python3 downstream-beneficiaries.py --parallelize=1 --dem=DEM_Colombia300m.tif --population=LandscanPopulation2017_Colombia.tif --areas-of-interest=MaskServiceProvHotspots.tif ./downstream-beneficiaries-workspace
+```
+
 
 ### Inputs:
 
@@ -74,7 +105,7 @@ This came about in late 2021 as a request to the software team from @lmandle
 and @jagoldstein as a utility that would have been useful in a project for IDB
 and would be useful for an upcoming project in Sri Lanka.
 
-The original software team issue is documented here: https://github.com/natcap/softwareteam/issues/125
+The original software team issue is documented here: https://github.com/natcap/softwareteam/issues/125 (github auth required)
 
 The approach taken is based on the weighted flow accumulation pygeoprocessing pipeline described here:
 https://github.com/therealspring/downstream-beneficiaries/blob/main/downstream_beneficiaries.py,
