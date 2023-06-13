@@ -244,7 +244,7 @@ def main():
             'Count the number of people downstream of pixels of interest.'),
         prog='downstream-beneficiaries.py')
     parser.add_argument(
-        '--parallelize', default=False, help=(
+        '--parallelize', default=False, action='store_true', help=(
             'Whether to engage multiple CPU cores for computation'))
     parser.add_argument(
         '--dem', help='The path to the linearly-projected DEM raster to use.',

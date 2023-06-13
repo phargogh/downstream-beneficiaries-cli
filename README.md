@@ -24,7 +24,7 @@ docker pull ghcr.io/natcap/devstack:2023-04-05
 
 ```
 python downstream-beneficiaries.py \
-    --parallelize=1 \
+    --parallelize \
     --dem=DEM_Colombia300m.tif \
     --population=LandscanPopulation2017_Colombia.tif \
     --areas-of-interest=MaskServiceProvHotspots.tif \
@@ -38,7 +38,7 @@ On Mac and Linux, this would look like:
 ```
 docker run --rm -ti -v $(pwd):/natcap -w /natcap ghcr.io/natcap/devstack:latest \
         python3 downstream-beneficiaries.py \
-        --parallelize=1 \
+        --parallelize \
         --dem=DEM_Colombia300m.tif \
         --population=LandscanPopulation2017_Colombia.tif \
         --areas-of-interest=MaskServiceProvHotspots.tif \
