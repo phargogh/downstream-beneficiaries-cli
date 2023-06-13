@@ -118,7 +118,7 @@ def calculate_downstream_beneficiaries(
 
     taskgraph_dir = os.path.join(workspace_dir, '.taskgraph')
 
-    if not os.path.join(taskgraph_dir):
+    if not os.path.exists(taskgraph_dir):
         os.makedirs(taskgraph_dir)
 
     graph = taskgraph.TaskGraph(
