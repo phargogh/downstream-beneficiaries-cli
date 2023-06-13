@@ -116,12 +116,13 @@ def calculate_downstream_beneficiaries(
     if algorithm not in ALGORITHMS.keys():
         raise ValueError(f"Invalid routing algorithm: {algorithm}")
 
-    if not os.path.join(workspace_dir):
-        os.makedirs(workspace_dir)
+    taskgraph_dir = os.path.join(workspace_dir, '.taskgraph')
+
+    if not os.path.join(taskgraph_dir):
+        os.makedirs(taskgraph_dir)
 
     graph = taskgraph.TaskGraph(
-        os.path.join(workspace_dir, '.taskgraph'),
-        n_workers=n_workers)
+        taskgraph_dir, n_workers=n_workers)
 
     # raster_calculator: convert the population to population per unit area
     population_density_path = os.path.join(
